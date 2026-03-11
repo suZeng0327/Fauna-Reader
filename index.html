@@ -65,11 +65,10 @@
             border-radius: 15px;
         }
 
-        /* 업로드된 이미지 표시 영역 */
         #face-image {
             position: absolute; top: 10%; left: 10%;
             width: 80%; height: 70%;
-            object-fit: contain; /* 이미지 비율 유지 */
+            object-fit: contain;
             border-radius: 10px;
             display: none;
             z-index: 5;
@@ -77,11 +76,18 @@
 
         .imageUploadForm.loaded #face-image { display: block; }
 
+        /* 하단 바 (Pick file / Go Go 영역) */
         .imageUploadForm .pickFile {
             position: absolute; bottom: 0; left: 0;
             display: flex; background: rgba(0,0,0,0.3);
             height: 25%; width: 100%;
             align-items: center; justify-content: center;
+            transition: transform 0.3s ease;
+        }
+
+        /* 결과가 나왔을 때 하단 바를 아래로 숨김 */
+        .imageUploadForm.predicted .pickFile {
+            transform: translateY(100%);
         }
 
         .pickFileButton {
@@ -97,8 +103,16 @@
             width: 100%; height: 100%; opacity: 0;
             cursor: pointer; z-index: 10;
         }
+        
+        /* 결과 분석 중에는 파일 선택 클릭 방지 */
+        .imageUploadForm.predicted .uploadButton { display: none; }
 
-        #label-container { width: 500px; max-width: 100%; margin-top: 30px; }
+        #label-container { 
+            width: 500px; 
+            max-width: 100%; 
+            margin-top: 30px; 
+            display: none; 
+        }
         
         #label-container div {
             background: rgba(255,255,255,0.05); padding: 15px;
@@ -106,6 +120,29 @@
             border: 1px solid rgba(255,255,255,0.1);
             font-size: 18px; display: flex; justify-content: space-between;
         }
+
+        /* 또 하기 버튼: 결과 창 바로 위/왼쪽에 작게 배치 */
+        .retry-box {
+            width: 500px;
+            max-width: 100%;
+            display: none;
+            justify-content: flex-start;
+            margin-top: 15px;
+        }
+
+        .btn-retry {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-family: 'Poppins', sans-serif;
+            font-size: 13px;
+            transition: background 0.3s;
+        }
+
+        .btn-retry:hover { background: rgba(255,255,255,0.2); }
     </style>
 </head>
 <body>
@@ -127,6 +164,12 @@
       </form>
     </div>
 
+    <div class="retry-box" id="retry-box">
+        <button type="button" class="btn-retry" onclick="resetUpload()">
+            <i class="fa fa-refresh"></i> 또 하기
+        </button>
+    </div>
+
     <div id="label-container"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
@@ -136,7 +179,6 @@
         const URL = "https://teachablemachine.withgoogle.com/models/kZ-a4VTne/";
         let model, labelContainer, maxPredictions;
 
-        // 1. 페이지 로드 시 모델을 미리 불러옵니다.
         async function loadModel() {
             const modelURL = URL + "model.json";
             const metadataURL = URL + "metadata.json";
@@ -144,18 +186,21 @@
             maxPredictions = model.getTotalClasses();
             
             labelContainer = document.getElementById("label-container");
-            labelContainer.innerHTML = ""; // 초기화
+            labelContainer.innerHTML = "";
             for (let i = 0; i < maxPredictions; i++) {
                 labelContainer.appendChild(document.createElement("div"));
             }
-            console.log("Model Ready.");
         }
 
-        // 2. 이미지를 예측하는 함수
         async function predict() {
             const image = document.getElementById("face-image");
             const prediction = await model.predict(image);
             
+            // 결과 도출 시: 하단 바 숨기기(클래스 추가) 및 결과창 노출
+            $("#imageUploadForm").addClass('predicted');
+            $('#retry-box').css('display', 'flex');
+            $('#label-container').fadeIn();
+
             for (let i = 0; i < maxPredictions; i++) {
                 const classPrediction = 
                     "<span>" + prediction[i].className + "</span>" + 
@@ -164,7 +209,15 @@
             }
         }
 
-        // 3. 파일 업로드 및 분석 트리거
+        function resetUpload() {
+            // 모든 상태 초기화
+            $("#imageUploadForm").removeClass('loaded predicted');
+            $("#face-image").attr('src', '');
+            $("#file").val('');
+            $("#label-container").hide();
+            $("#retry-box").hide();
+        }
+
         $(document).ready(function() {
             loadModel();
 
@@ -175,13 +228,11 @@
             $file.on('change', function() {
                 if (this.files && this.files[0]) {
                     const reader = new FileReader();
-                    
                     reader.onload = function (e) {
                         $faceImage.attr('src', e.target.result);
                         $form.addClass('loaded');
                         
-                        // 이미지가 화면에 완전히 로드된 후 AI 분석 시작
-                        $faceImage.on('load', function() {
+                        $faceImage.off('load').on('load', function() {
                             if (model) predict();
                         });
                     };
