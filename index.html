@@ -3,17 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Recognition Model</title>
+    <title>Animal Face Recognition</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 
     <style>
         * , *:before, *:after { box-sizing: border-box; }
         
         body {
-            background: linear-gradient(180deg, #333333 0%, #000000 100%);
+            background: linear-gradient(180deg, #111111 0%, #000000 100%);
             font-family: 'Poppins', sans-serif;
             display: flex;
             flex-direction: column;
@@ -23,154 +24,175 @@
             margin: 0;
             color: white;
             padding: 20px;
+            padding-top: 80px;
+        }
+
+        /* 네비게이션 바 */
+        .nav-bar {
+            position: fixed; top: 0; left: 0; width: 100%;
+            background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(10px);
+            z-index: 1000; border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .nav-container {
+            max-width: 1000px; margin: 0 auto; display: flex;
+            justify-content: space-between; align-items: center; padding: 15px 20px;
+        }
+        .nav-logo { font-weight: 700; font-size: 20px; color: #FF6B6B; }
+        .nav-links { display: flex; gap: 30px; }
+        .nav-links a { color: white; text-decoration: none; font-size: 15px; opacity: 0.8; padding: 10px 0; }
+        .nav-hamburger { display: none; cursor: pointer; font-size: 20px; }
+
+        @media (max-width: 768px) {
+            .nav-hamburger { display: block; }
+            .nav-links {
+                display: none; 
+                flex-direction: column !important;
+                width: 100%;
+                position: absolute; top: 55px; left: 0; background: rgba(0,0,0,0.9);
+                padding: 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1);
+            }
         }
 
         h2 { font-weight: 700; margin-bottom: 30px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
 
-        .uploadWrapper {
-            position: relative;
-            width: 500px;
-            max-width: 100%;
-        }
-
-        .imageUploadForm {
-            background: rgba(255, 255, 255, 0.05);
-            height: 400px;
-            width: 100%;
-            position: relative;
+        /* 캡처 대상 영역 */
+        #capture-area {
             display: flex;
-            align-items: flex-end;
-            justify-content: center;
-            flex-wrap: wrap;
-            border-radius: 20px;
-            border: 2px solid rgba(255,255,255,0.1);
-            overflow: hidden;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
         }
 
+        /* 업로드 박스 */
+        .uploadWrapper { position: relative; width: 500px; max-width: 100%; }
+        .imageUploadForm {
+            background: rgba(255, 255, 255, 0.05); height: 400px; width: 100%;
+            position: relative; display: flex; align-items: flex-end; justify-content: center;
+            flex-wrap: wrap; border-radius: 20px; border: 2px solid rgba(255,255,255,0.1);
+            overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
         .imageUploadForm .helpText {
             color: rgba(255,255,255,0.7); display: block; position: absolute;
             top: 2%; left: 0; width: 100%; height: 100%;
             text-align: center; font-size: 30px; font-weight: 300; z-index: 1;
         }
-
         .imageUploadForm.loaded .helpText { display: none; }
-
         .imageUploadForm .helpText:after {
             content: '\f0ee'; font-family: 'FontAwesome';
             font-size: 150%; color: rgba(255, 255, 255, 0.3);
             display: flex; align-items: center; justify-content: center;
             margin: 4% auto; width: 50%; height: 50%;
-            border: 4px dashed rgba(255, 255, 255, 0.2);
-            border-radius: 15px;
+            border: 4px dashed rgba(255, 255, 255, 0.2); border-radius: 15px;
         }
 
         #face-image {
-            position: absolute; top: 10%; left: 10%;
-            width: 80%; height: 70%;
-            object-fit: contain;
-            border-radius: 10px;
-            display: none;
-            z-index: 5;
+            position: absolute; top: 10%; left: 10%; width: 80%; height: 70%;
+            object-fit: contain; border-radius: 10px; display: none; z-index: 5;
         }
-
         .imageUploadForm.loaded #face-image { display: block; }
-
-        /* 하단 바 (Pick file / Go Go 영역) */
         .imageUploadForm .pickFile {
-            position: absolute; bottom: 0; left: 0;
-            display: flex; background: rgba(0,0,0,0.3);
-            height: 25%; width: 100%;
-            align-items: center; justify-content: center;
+            position: absolute; bottom: 0; left: 0; display: flex; background: rgba(0,0,0,0.3);
+            height: 25%; width: 100%; align-items: center; justify-content: center;
             transition: transform 0.3s ease;
         }
-
-        /* 결과가 나왔을 때 하단 바를 아래로 숨김 */
-        .imageUploadForm.predicted .pickFile {
-            transform: translateY(100%);
-        }
-
+        .imageUploadForm.predicted .pickFile { transform: translateY(100%); }
         .pickFileButton {
-            display: inline-block; padding: 12px 25px;
-            font-weight: 500; font-size: 16px; color: white;
-            background: #FF6B6B;
-            border-radius: 20px; text-decoration: none;
+            display: inline-block; padding: 12px 25px; font-weight: 500; font-size: 16px;
+            color: white; background: #FF6B6B; border-radius: 20px; text-decoration: none;
             box-shadow: 0 4px 10px rgba(255,107,107,0.4);
         }
-
-        .uploadButton {
-            position: absolute; top: 0; left: 0;
-            width: 100%; height: 100%; opacity: 0;
-            cursor: pointer; z-index: 10;
-        }
-        
-        /* 결과 분석 중에는 파일 선택 클릭 방지 */
+        .uploadButton { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 10; }
         .imageUploadForm.predicted .uploadButton { display: none; }
 
-        #label-container { 
-            width: 500px; 
-            max-width: 100%; 
-            margin-top: 30px; 
-            display: none; 
+        /* 결과 그래프 */
+        #label-container { width: 500px; max-width: 100%; margin-top: 30px; display: none; }
+        .result-bar-box { margin-bottom: 15px; }
+        .result-label { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 16px; font-weight: 500; }
+        .bar-container {
+            width: 100%; height: 20px; background: rgba(255,255,255,0.1);
+            border-radius: 10px; overflow: hidden; box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
         }
-        
-        #label-container div {
-            background: rgba(255,255,255,0.05); padding: 15px;
-            margin-bottom: 10px; border-radius: 10px;
-            border: 1px solid rgba(255,255,255,0.1);
-            font-size: 18px; display: flex; justify-content: space-between;
-        }
-
-        /* 또 하기 버튼: 결과 창 바로 위/왼쪽에 작게 배치 */
-        .retry-box {
-            width: 500px;
-            max-width: 100%;
-            display: none;
-            justify-content: flex-start;
-            margin-top: 15px;
+        .bar-fill {
+            height: 100%; border-radius: 10px; transition: width 1s ease-in-out;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.3);
         }
 
+        /* 하단 버튼 및 공유 섹션 */
+        .retry-box { width: 500px; max-width: 100%; display: none; justify-content: flex-start; margin-top: 15px; }
         .btn-retry {
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            color: white;
-            padding: 5px 15px;
-            border-radius: 15px;
-            cursor: pointer;
-            font-family: 'Poppins', sans-serif;
-            font-size: 13px;
-            transition: background 0.3s;
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: white; padding: 8px 18px; border-radius: 15px; cursor: pointer;
+            font-family: 'Poppins', sans-serif; font-size: 13px; transition: 0.3s;
         }
-
         .btn-retry:hover { background: rgba(255,255,255,0.2); }
+
+        .share-container { 
+            width: 500px; max-width: 100%; margin-top: 40px; 
+            display: none; flex-direction: column; align-items: center; 
+        }
+        .share-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
+        .share-btn {
+            width: 45px; height: 45px; border-radius: 10px; display: flex;
+            align-items: center; justify-content: center; color: white;
+            text-decoration: none; font-size: 20px; transition: transform 0.2s;
+            cursor: pointer; border: none;
+        }
+        .share-btn:hover { transform: scale(1.1); }
+        .btn-facebook { background: #1877F2; }
+        .btn-x { background: #000000; border: 1px solid #333; }
+        .btn-mail { background: #ffffff; color: #333; }
+        .btn-msg { background: #4CD964; }
+        .btn-kakao { background: #FEE500; color: #3C1E1E; }
+        .btn-link { background: #8E8E93; }
     </style>
 </head>
 <body>
 
+    <nav class="nav-bar">
+        <div class="nav-container">
+            <div class="nav-logo">Animal Face</div>
+            <div class="nav-links" id="menu">
+                <a href="#">Home</a>
+                <a href="#">About</a>
+            </div>
+            <div class="nav-hamburger" onclick="toggleMenu()">
+                <i class="fa fa-bars"></i>
+            </div>
+        </div>
+    </nav>
+
     <h2>동물상 판독기</h2>
 
-    <div class="uploadWrapper">
-      <form id="imageUploadForm" class="imageUploadForm">
-        <span class="helpText">여기다가 파일 업로드</span>
-        <input type='file' id="file" class="uploadButton" accept="image/*" />
-        
-        <img id="face-image" src="" alt="uploaded image" />
-        
-        <span class="pickFile">
-          <a href="#" class="pickFileButton">
-            <i class="fa fa-image"></i> Go Go
-          </a>
-        </span>
-      </form>
+    <div id="capture-area">
+        <div class="uploadWrapper">
+            <form id="imageUploadForm" class="imageUploadForm">
+                <span class="helpText">사진을 업로드하세요</span>
+                <input type='file' id="file" class="uploadButton" accept="image/*" />
+                <img id="face-image" src="" alt="uploaded image" />
+                <span class="pickFile">
+                <a href="#" class="pickFileButton"><i class="fa fa-image"></i> 이미지 선택</a>
+                </span>
+            </form>
+        </div>
+        <div id="label-container"></div>
     </div>
 
     <div class="retry-box" id="retry-box">
         <button type="button" class="btn-retry" onclick="resetUpload()">
-            <i class="fa fa-refresh"></i> 또 하기
+            <i class="fa fa-refresh"></i> 다시 하기
         </button>
     </div>
 
-    <div id="label-container"></div>
+    <div class="share-container" id="share-section">
+        <div class="share-buttons">
+            <button class="share-btn btn-facebook" onclick="shareResult()"><i class="fa fa-facebook"></i></button>
+            <button class="share-btn btn-x" onclick="shareResult()"><b>𝕏</b></button>
+            <button class="share-btn btn-mail" onclick="shareResult()"><i class="fa fa-envelope"></i></button>
+            <button class="share-btn btn-msg" onclick="shareResult()"><i class="fa fa-commenting"></i></button>
+            <button class="share-btn btn-kakao" onclick="shareResult()"><i class="fa fa-comment"></i></button>
+            <button class="share-btn btn-link" onclick="copyLink()"><i class="fa fa-link"></i></button>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
@@ -179,60 +201,115 @@
         const URL = "https://teachablemachine.withgoogle.com/models/kZ-a4VTne/";
         let model, labelContainer, maxPredictions;
 
+        function toggleMenu() {
+            $('#menu').slideToggle(300); 
+        }
+
         async function loadModel() {
             const modelURL = URL + "model.json";
             const metadataURL = URL + "metadata.json";
             model = await tmImage.load(modelURL, metadataURL);
             maxPredictions = model.getTotalClasses();
-            
             labelContainer = document.getElementById("label-container");
-            labelContainer.innerHTML = "";
-            for (let i = 0; i < maxPredictions; i++) {
-                labelContainer.appendChild(document.createElement("div"));
-            }
         }
 
         async function predict() {
             const image = document.getElementById("face-image");
             const prediction = await model.predict(image);
             
-            // 결과 도출 시: 하단 바 숨기기(클래스 추가) 및 결과창 노출
             $("#imageUploadForm").addClass('predicted');
             $('#retry-box').css('display', 'flex');
-            $('#label-container').fadeIn();
+            $('#label-container').fadeIn().html(""); 
+            $('#share-section').css('display', 'flex').hide().fadeIn();
+
+            const emojis = ["🐶", "🐱", "🦊", "🐰", "🦖", "🦌", "🐹"];
+            const rainbowColors = ["#FF5F5F", "#FFA35F", "#FFF15F", "#79FF5F", "#5F96FF", "#A35FFF", "#8B00FF"];
 
             for (let i = 0; i < maxPredictions; i++) {
-                const classPrediction = 
-                    "<span>" + prediction[i].className + "</span>" + 
-                    "<span style='font-weight: 700; color: #FF6B6B;'>" + (prediction[i].probability * 100).toFixed(0) + "%</span>";
-                labelContainer.childNodes[i].innerHTML = classPrediction;
+                const name = prediction[i].className;
+                const prob = (prediction[i].probability * 100).toFixed(0);
+                const barColor = rainbowColors[i] || "#ffffff"; 
+                const emoji = emojis[i] || " ";
+
+                const barHtml = `
+                    <div class="result-bar-box">
+                        <div class="result-label">
+                            <span>${emoji} ${name}</span>
+                            <span>${prob}%</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: ${prob}%; background-color: ${barColor};"></div>
+                        </div>
+                    </div>
+                `;
+                labelContainer.innerHTML += barHtml;
             }
         }
 
+        // 공유 기능 핵심 로직
+        async function shareResult() {
+            const captureArea = document.querySelector("#capture-area");
+            
+            // 1. 화면 캡처
+            const canvas = await html2canvas(captureArea, {
+                backgroundColor: "#000000",
+                useCORS: true // 외부 이미지 허용
+            });
+            
+            canvas.toBlob(async (blob) => {
+                const file = new File([blob], "result.png", { type: "image/png" });
+                
+                // 2. Web Share API 지원 확인 (모바일)
+                if (navigator.share) {
+                    try {
+                        await navigator.share({
+                            files: [file],
+                            title: '동물상 판독 결과',
+                            text: '나의 동물상 판독 결과입니다! 직접 확인해보세요.'
+                        });
+                    } catch (err) {
+                        console.log("공유 실패:", err);
+                    }
+                } else {
+                    // 3. 미지원 시 이미지 다운로드 유도
+                    const link = document.createElement('a');
+                    link.href = canvas.toDataURL();
+                    link.download = 'animal_face_result.png';
+                    link.click();
+                    alert("공유 기능이 지원되지 않는 브라우저입니다. 이미지가 저장되었습니다.");
+                }
+            });
+        }
+
+        function copyLink() {
+            const dummy = document.createElement('input');
+            const text = window.location.href;
+            document.body.appendChild(dummy);
+            dummy.value = text;
+            dummy.select();
+            document.execCommand('copy');
+            document.body.removeChild(dummy);
+            alert("링크가 복사되었습니다!");
+        }
+
         function resetUpload() {
-            // 모든 상태 초기화
             $("#imageUploadForm").removeClass('loaded predicted');
             $("#face-image").attr('src', '');
             $("#file").val('');
-            $("#label-container").hide();
+            $("#label-container").hide().html("");
             $("#retry-box").hide();
+            $("#share-section").hide();
         }
 
         $(document).ready(function() {
             loadModel();
-
-            const $form = $("#imageUploadForm");
-            const $file = $("#file");
-            const $faceImage = $("#face-image");
-
-            $file.on('change', function() {
+            $("#file").on('change', function() {
                 if (this.files && this.files[0]) {
                     const reader = new FileReader();
                     reader.onload = function (e) {
-                        $faceImage.attr('src', e.target.result);
-                        $form.addClass('loaded');
-                        
-                        $faceImage.off('load').on('load', function() {
+                        $("#face-image").attr('src', e.target.result);
+                        $("#imageUploadForm").addClass('loaded');
+                        $("#face-image").off('load').on('load', function() {
                             if (model) predict();
                         });
                     };
